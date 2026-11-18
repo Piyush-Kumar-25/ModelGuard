@@ -1,83 +1,88 @@
-from __future__ import annotations
-
+import copy
 import numpy as np
 import pandas as pd
-from scipy.spatial.distance import jensenshannon
-
-from ..database import dump, insert, now, uid
+from scipy.stats import wasserstein_distance
 from ..errors import ModelGuardError
-from .modeling import evaluate, latest_model
-
-LABEL="Controlled scenario simulation—not a prediction of the actual future."
-
-
-def _apply(df: pd.DataFrame, spec: dict, rng) -> tuple[pd.DataFrame,list[str]]:
-    out=df.copy(); typ=spec["type"]; mag=spec["magnitude"]; feature=spec.get("feature"); changed=[]
-    targets=[feature] if feature else list(out.select_dtypes(include=np.number).columns)
-    if typ=="numeric_shift":
-        for c in targets:
-            if c not in out or not pd.api.types.is_numeric_dtype(out[c]): continue
-            out[c]=out[c]+mag*out[c].std(skipna=True); changed.append(c)
-    elif typ=="noise":
-        for c in targets:
-            if c not in out or not pd.api.types.is_numeric_dtype(out[c]): continue
-            out[c]=out[c]+rng.normal(0,mag*(out[c].std(skipna=True) or 1),len(out)); changed.append(c)
-    elif typ=="missingness":
-        targets=[feature] if feature else list(out.columns)
-        for c in targets:
-            if c in out: out.loc[rng.random(len(out))<min(mag,1),c]=np.nan; changed.append(c)
-    elif typ=="extreme_values":
-        for c in targets:
-            if c not in out or not pd.api.types.is_numeric_dtype(out[c]): continue
-            mask=rng.random(len(out))<min(mag,1); out.loc[mask,c]=out[c].median()+rng.choice([-1,1],mask.sum())*5*(out[c].std(skipna=True) or 1); changed.append(c)
-    elif typ=="categorical_shift":
-        if not feature or feature not in out: raise ModelGuardError("categorical_shift requires a valid feature","invalid_scenario")
-        values=out[feature].dropna().value_counts();
-        if values.empty: raise ModelGuardError("Categorical feature has no observed values","invalid_scenario")
-        mask=rng.random(len(out))<min(mag,1); out.loc[mask,feature]=values.index[0]; changed=[feature]
-    elif typ=="combined":
-        for nested in spec.get("parameters",{}).get("scenarios",[]):
-            out,ch=_apply(out,nested,rng); changed.extend(ch)
-    return out,sorted(set(changed))
+from .modeling import load_model
+from .data import profile
+from .metrics import evaluate,relative_drop
+from .shield import save_analysis
 
 
-def _distribution_change(a,b):
-    result={}
-    for c in a.columns:
-        if pd.api.types.is_numeric_dtype(a[c]):
-            scale=float(a[c].std(skipna=True) or 1); result[str(c)]={"standardized_mean_change":float(abs(b[c].mean()-a[c].mean())/scale),"missingness_change":float(b[c].isna().mean()-a[c].isna().mean())}
-        else:
-            keys=a[c].astype(str).value_counts(normalize=True).index.union(b[c].astype(str).value_counts(normalize=True).index)
-            p=a[c].astype(str).value_counts(normalize=True).reindex(keys,fill_value=0); q=b[c].astype(str).value_counts(normalize=True).reindex(keys,fill_value=0)
-            result[str(c)]={"jensen_shannon_distance":float(jensenshannon(p,q,base=2)),"missingness_change":float(b[c].isna().mean()-a[c].isna().mean())}
-    return result
+def distribution(pred,task):
+    p=np.asarray(pred)
+    if task=='classification':return {str(k):float(v) for k,v in pd.Series(p).value_counts(normalize=True).items()}
+    return {'mean':float(p.mean()),'variance':float(p.var()),'quantiles':np.quantile(p,[.05,.25,.5,.75,.95]).tolist()}
 
+def perturb(x,y,scenario,intensity,rng,depth=0):
+    if depth>4:raise ModelGuardError('Combined scenario nesting exceeds four levels')
+    x=x.copy();y=np.asarray(y).copy() if y is not None else None;s=copy.deepcopy(scenario);kind=s['type'];p=s.get('parameters',{});mag=float(s.get('magnitude',.1))*intensity;c=s.get('feature');changed=[];definition={**s,'intensity':intensity,'effective_magnitude':mag}
+    if intensity==0:
+        definition.update(identity=True)
+        if kind=='numeric_scaling':definition['effective_factor']=1.
+        return x,y,[],definition
+    if kind=='combined':
+        items=p.get('scenarios',[])
+        if not 1<=len(items)<=10:raise ModelGuardError('Combined requires 1–10 scenarios')
+        definitions=[]
+        for item in items:
+            x,y,features,d=perturb(x,y,item,intensity,rng,depth+1);changed+=features;definitions.append(d)
+        definition['resolved_scenarios']=definitions;return x,y,sorted(set(changed)),definition
+    if kind=='class_prevalence':
+        if y is None:raise ModelGuardError('Class prevalence needs confirmed labels')
+        desired=p.get('distribution',{})
+        if not desired:raise ModelGuardError('Provide requested class distribution')
+        classes=np.unique(y);desired={str(k):float(v) for k,v in desired.items()}
+        if set(desired)!=set(map(str,classes)) or min(desired.values())<0 or not np.isclose(sum(desired.values()),1):raise ModelGuardError('Invalid requested class distribution')
+        if mag==0:return x,y,[],{**definition,'identity':True}
+        alpha=min(1,mag);observed={str(k):float(np.mean(y==k)) for k in classes};prob=np.asarray([(1-alpha)+alpha*desired[str(k)]/observed[str(k)] for k in y]);prob/=prob.sum();idx=rng.choice(len(x),len(x),replace=True,p=prob);definition.update(units='prevalence mixture fraction',requested_distribution=desired)
+        return x.iloc[idx].reset_index(drop=True),y[idx],['target_prevalence'],definition
+    features=p.get('features') or ([c] if c else list(x.columns))
+    if any(f not in x for f in features):raise ModelGuardError('Scenario feature absent from model inputs')
+    if kind in {'numeric_shift','numeric_scaling','noise','extreme_values'} and any(not pd.api.types.is_numeric_dtype(x[f]) for f in features):raise ModelGuardError('Scenario requires numeric features')
+    for feature in features:
+        series=x[feature];std=float(series.std()) if pd.api.types.is_numeric_dtype(series) and series.notna().sum()>1 else 1.;std=std if std>0 else 1.
+        if kind=='numeric_shift':
+            direction=p.get('direction','increase');units=p.get('units','standard_deviations')
+            if direction not in {'increase','decrease'} or units not in {'standard_deviations','absolute'}:raise ModelGuardError('Invalid shift direction or units')
+            shift=mag*(std if units=='standard_deviations' else 1)*(1 if direction=='increase' else -1);x[feature]=series+shift;definition.update(direction=direction,units=units,applied_offset=shift)
+        elif kind=='numeric_scaling':
+            factor=float(p.get('factor',s.get('magnitude',1.1)))
+            if factor<0 or not np.isfinite(factor):raise ModelGuardError('Scale factor must be finite and nonnegative')
+            effective=1+intensity*(factor-1)
+            if effective<0:raise ModelGuardError('Effective scale must be nonnegative')
+            x[feature]=series*effective;definition.update(units='multiplicative factor',effective_factor=effective)
+        elif kind=='noise':x[feature]=series+rng.normal(0,mag*std,len(x));definition['units']='standard deviations of additive zero-mean Gaussian noise'
+        elif kind=='missingness':
+            if mag>1:raise ModelGuardError('Missingness probability exceeds one')
+            x.loc[rng.random(len(x))<mag,feature]=np.nan;definition['units']='additional null probability'
+        elif kind=='extreme_values':
+            fraction=float(p.get('fraction',.05))
+            if not 0<=fraction<=1:raise ModelGuardError('Invalid extreme fraction')
+            direction=p.get('direction','increase')
+            if direction not in {'increase','decrease'}:raise ModelGuardError('Invalid extreme direction')
+            mask=rng.random(len(x))<fraction;x.loc[mask,feature]=series.median()+mag*std*(1 if direction=='increase' else -1);definition.update(units='standard deviations from median',direction=direction,affected_fraction=fraction)
+        elif kind=='categorical_shift':
+            if pd.api.types.is_numeric_dtype(series):raise ModelGuardError('Categorical shift requires categorical input')
+            dist=p.get('distribution',{});total=sum(float(v) for v in dist.values())
+            if not dist or not np.isclose(total,1) or min(map(float,dist.values()))<0:raise ModelGuardError('Requested category probabilities must sum to one')
+            mask=rng.random(len(x))<min(mag,1);x.loc[mask,feature]=rng.choice(list(dist),mask.sum(),p=list(dist.values()));definition.update(units='replacement mixture fraction',requested_distribution=dist)
+        elif kind=='input_corruption':
+            if mag>1:raise ModelGuardError('Corruption fraction exceeds one')
+            mask=rng.random(len(x))<mag;x.loc[mask,feature]=series.median()+10*std if pd.api.types.is_numeric_dtype(series) else '__CORRUPTED__';definition['units']='corrupted input fraction'
+        else:raise ModelGuardError('Unknown scenario type')
+        changed.append(feature)
+    return x,y,changed,definition
 
-def simulate(project_id: str, payload: dict) -> dict:
-    model,art=latest_model(project_id); rng=np.random.default_rng(art["config"]["random_seed"]); x=art["x_test"]; y=art["y_test"]; pipe=art["pipeline"]; baseline=model["metrics"]
-    results=[]
-    for spec in payload["scenarios"]:
-        scenario_y=y
-        prevalence=None
-        if spec["type"]=="class_prevalence":
-            if not payload["include_labels"] or model["task"]!="classification": raise ModelGuardError("class_prevalence requires classification labels","invalid_scenario")
-            cls=spec.get("parameters",{}).get("target_class"); desired=float(spec.get("parameters",{}).get("proportion",spec["magnitude"]))
-            if not 0.01<=desired<=0.99: raise ModelGuardError("Class prevalence proportion must be in [0.01, 0.99]","invalid_scenario")
-            values=np.asarray(y); available=np.unique(values)
-            match=[v for v in available if str(v)==str(cls)]
-            if not match: raise ModelGuardError("target_class is not present in evaluation labels","invalid_scenario")
-            cls=match[0]; positive=np.flatnonzero(values==cls); other=np.flatnonzero(values!=cls)
-            if not len(positive) or not len(other): raise ModelGuardError("Class prevalence simulation needs target and non-target samples","invalid_scenario")
-            npos=int(round(len(x)*desired)); idx=np.concatenate([rng.choice(positive,npos,replace=npos>len(positive)),rng.choice(other,len(x)-npos,replace=(len(x)-npos)>len(other))]); rng.shuffle(idx)
-            shifted=x.iloc[idx].copy(); scenario_y=y.iloc[idx].copy(); changed=[]; prevalence={"target_class":str(cls),"baseline":float(np.mean(values==cls)),"scenario":float(np.mean(np.asarray(scenario_y)==cls))}
-        else: shifted,changed=_apply(x,spec,rng)
-        pred=pipe.predict(shifted); proba=pipe.predict_proba(shifted) if hasattr(pipe,"predict_proba") else None
-        base_pred=np.asarray(art["predictions"]); keys=np.union1d(base_pred,pred); bp=np.array([np.mean(base_pred==k) for k in keys]); sp=np.array([np.mean(pred==k) for k in keys])
-        item={"scenario":spec,"label":LABEL,"changed_features":changed,"class_prevalence_change":prevalence,"feature_distribution_changes":_distribution_change(x,shifted),"prediction_distribution_change":{"total_variation_distance":float(.5*np.abs(bp-sp).sum()),"paired_changed_prediction_fraction":None if spec["type"]=="class_prevalence" else float(np.mean(pred!=base_pred))}}
-        if proba is not None: item["confidence_change"]={"baseline_mean_max_probability":float(np.mean(np.max(art["probabilities"],axis=1))),"scenario_mean_max_probability":float(np.mean(np.max(proba,axis=1)))}
-        if payload["include_labels"]:
-            metrics,_,_=evaluate(pipe,shifted,scenario_y,model["task"]); item["performance_metrics"]=metrics; item["metric_differences"]={k:(metrics[k]-v if isinstance(v,(int,float)) and isinstance(metrics.get(k),(int,float)) else None) for k,v in baseline.items()}
-        else: item["performance_metrics"]=None; item["ground_truth_notice"]="Labels excluded: no accuracy, F1, or other ground-truth metric was calculated."
-        results.append(item)
-    result={"project_id":project_id,"model_id":model["id"],"label":LABEL,"results":results,"generated_at":now()}
-    insert("analyses",{"id":uid(),"project_id":project_id,"kind":"datatwin","result_json":dump(result),"created_at":now()}); return result
+def simulate(pid,params):
+    model,art=load_model(pid);pipe=art['pipeline'];cfg=art['config'];x=art['x_validation'];y=art['y_validation'] if params.get('include_labels',True) else None;task=cfg['task'];basepred=pipe.predict(x);basep=pipe.predict_proba(x) if task=='classification' else None
+    baseline=evaluate(pipe,x,y,task,cfg.get('positive_class'))[0] if y is not None else None;results=[];rng=np.random.default_rng(params.get('random_seed',cfg['random_seed']))
+    for scenario in params['scenarios']:
+        if scenario['type']=='class_prevalence' and task!='classification':raise ModelGuardError('Class prevalence is classification only')
+        for intensity in params.get('intensities',[1.]):
+            xs,ys,features,definition=perturb(x,y,scenario,intensity,rng);pred=pipe.predict(xs);p=pipe.predict_proba(xs) if task=='classification' else None;metrics=evaluate(pipe,xs,ys,task,cfg.get('positive_class'))[0] if ys is not None else None;drop=relative_drop(baseline,metrics,cfg['primary_metric']) if baseline is not None else None
+            status='Insufficient Evidence' if drop is None else 'Critical' if drop>=cfg['critical_drop'] else 'Needs Attention' if drop>=cfg['acceptance_drop'] else 'Pass'
+            comparison={'changed_prediction_fraction':float(np.mean(pred!=basepred))} if task=='classification' else {'wasserstein_distance':float(wasserstein_distance(basepred,pred)),'mean_shift':float(np.mean(pred)-np.mean(basepred)),'variance_shift':float(np.var(pred)-np.var(basepred)),'paired_mean_absolute_change':float(np.mean(np.abs(pred-basepred))) if scenario['type']!='class_prevalence' else None}
+            results.append({'scenario_definition':definition,'changed_features':features,'random_seed':params.get('random_seed',cfg['random_seed']),'baseline_distribution':profile(x),'scenario_distribution':profile(xs),'baseline_prediction_distribution':distribution(basepred,task),'scenario_prediction_distribution':distribution(pred,task),'prediction_comparison':comparison,'confidence_change':float(p.max(axis=1).mean()-basep.max(axis=1).mean()) if p is not None else None,'baseline_performance':baseline,'performance_metrics':metrics,'metric_change':{k:float(metrics[k]-baseline[k]) for k in metrics if isinstance(metrics[k],(int,float)) and isinstance(baseline.get(k),(int,float))} if metrics else None,'relative_primary_drop':drop,'status':status,'label':'Controlled scenario: robustness stress test using retained labels; not a forecast of future ground truth.' if ys is not None else 'Controlled scenario without labels; prediction sensitivity only.','limitations':['Perturbed inputs may not be causally compatible with retained labels.','Practical effect thresholds do not imply statistical significance.']})
+    ranking=sorted(range(len(results)),key=lambda i:results[i]['relative_primary_drop'] if results[i]['relative_primary_drop'] is not None else abs(results[i]['confidence_change'] or results[i]['prediction_comparison'].get('mean_shift',0)),reverse=True)
+    return save_analysis(pid,'datatwin',{'model_id':model['id'],'evaluation_partition':'validation','results':results,'sensitivity_ranking':ranking,'tipping_points':[i for i,r in enumerate(results) if r['status'] in {'Critical','Needs Attention'}]})

@@ -54,6 +54,9 @@ def init_db() -> None:
           result_json TEXT, error_json TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
         """)
 
+    from .migrations import migrate
+    migrate()
+
 
 def insert(table: str, values: dict[str, Any]) -> dict[str, Any]:
     cols = list(values)

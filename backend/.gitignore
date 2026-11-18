@@ -6,3 +6,10 @@ work/
 data/
 .env
 
+.coverage*
+htmlcov/
+localdata/
+*.db
+*.sqlite*
+*.joblib
+catboost_info/
