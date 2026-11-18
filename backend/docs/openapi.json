@@ -1,0 +1,1970 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ModelGuard API",
+    "description": "Evidence-first ML reliability, failure analysis, scenario testing, and batch drift monitoring.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects": {
+      "post": {
+        "summary": "Projects Create",
+        "operationId": "projects_create_projects_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/datasets": {
+      "post": {
+        "summary": "Datasets Upload",
+        "operationId": "datasets_upload_projects__project_id__datasets_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_datasets_upload_projects__project_id__datasets_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/datasets/{dataset_id}/summary": {
+      "get": {
+        "summary": "Datasets Summary",
+        "operationId": "datasets_summary_projects__project_id__datasets__dataset_id__summary_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/configure": {
+      "post": {
+        "summary": "Projects Configure",
+        "operationId": "projects_configure_projects__project_id__configure_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/audit": {
+      "post": {
+        "summary": "Projects Audit",
+        "operationId": "projects_audit_projects__project_id__audit_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/models/train": {
+      "post": {
+        "summary": "Models Train",
+        "operationId": "models_train_projects__project_id__models_train_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/models/results": {
+      "get": {
+        "summary": "Models Results",
+        "operationId": "models_results_projects__project_id__models_results_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/modelshield/analyze": {
+      "post": {
+        "summary": "Modelshield Analyze",
+        "operationId": "modelshield_analyze_projects__project_id__modelshield_analyze_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShieldRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/datatwin/simulate": {
+      "post": {
+        "summary": "Datatwin Simulate",
+        "operationId": "datatwin_simulate_projects__project_id__datatwin_simulate_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataTwinRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/experiments": {
+      "post": {
+        "summary": "Experiments Run",
+        "operationId": "experiments_run_projects__project_id__experiments_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExperimentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/drift/analyze": {
+      "post": {
+        "summary": "Drift Analyze",
+        "operationId": "drift_analyze_projects__project_id__drift_analyze_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriftRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/reliability": {
+      "get": {
+        "summary": "Reliability Get",
+        "operationId": "reliability_get_projects__project_id__reliability_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "include_indicator",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Indicator"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/report": {
+      "get": {
+        "summary": "Report Get",
+        "operationId": "report_get_projects__project_id__report_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "include_indicator",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Indicator"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/{job_id}": {
+      "get": {
+        "summary": "Jobs Get",
+        "operationId": "jobs_get_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/{job_id}/cancel": {
+      "post": {
+        "summary": "Jobs Cancel",
+        "operationId": "jobs_cancel_jobs__job_id__cancel_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/datasets/{dataset_id}/target-suggestions": {
+      "get": {
+        "summary": "Targets Suggest",
+        "operationId": "targets_suggest_projects__project_id__datasets__dataset_id__target_suggestions_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Dataset Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/monitoring/batches": {
+      "post": {
+        "summary": "Monitoring Upload",
+        "operationId": "monitoring_upload_projects__project_id__monitoring_batches_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_monitoring_upload_projects__project_id__monitoring_batches_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Monitoring Batches",
+        "operationId": "monitoring_batches_projects__project_id__monitoring_batches_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/monitoring/batches/{batch_id}/mapping": {
+      "post": {
+        "summary": "Monitoring Mapping",
+        "operationId": "monitoring_mapping_projects__project_id__monitoring_batches__batch_id__mapping_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MappingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/monitoring/batches/{batch_id}/analyze": {
+      "post": {
+        "summary": "Monitoring Analyze",
+        "operationId": "monitoring_analyze_projects__project_id__monitoring_batches__batch_id__analyze_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/monitoring/batches/{batch_id}/labels": {
+      "post": {
+        "summary": "Monitoring Labels",
+        "operationId": "monitoring_labels_projects__project_id__monitoring_batches__batch_id__labels_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Batch Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_monitoring_labels_projects__project_id__monitoring_batches__batch_id__labels_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/monitoring/history": {
+      "get": {
+        "summary": "Monitoring History",
+        "operationId": "monitoring_history_projects__project_id__monitoring_history_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "model_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Model Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/models/{model_id}/lifecycle": {
+      "post": {
+        "summary": "Model Lifecycle",
+        "operationId": "model_lifecycle_projects__project_id__models__model_id__lifecycle_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Model Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LifecycleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/models/{model_id}/card": {
+      "get": {
+        "summary": "Model Card",
+        "operationId": "model_card_projects__project_id__models__model_id__card_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Model Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(json|markdown)$",
+              "default": "json",
+              "title": "Format"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/models/{model_id}/report": {
+      "get": {
+        "summary": "Model Report",
+        "operationId": "model_report_projects__project_id__models__model_id__report_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Model Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(json|markdown)$",
+              "default": "json",
+              "title": "Format"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/models/{model_id}/export": {
+      "get": {
+        "summary": "Model Export",
+        "operationId": "model_export_projects__project_id__models__model_id__export_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Model Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/models/{model_id}/predict": {
+      "post": {
+        "summary": "Model Predict",
+        "operationId": "model_predict_projects__project_id__models__model_id__predict_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Model Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_datasets_upload_projects__project_id__datasets_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_datasets_upload_projects__project_id__datasets_post"
+      },
+      "Body_monitoring_labels_projects__project_id__monitoring_batches__batch_id__labels_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "target_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Column"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_monitoring_labels_projects__project_id__monitoring_batches__batch_id__labels_post"
+      },
+      "Body_monitoring_upload_projects__project_id__monitoring_batches_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "batch_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Timestamp"
+          },
+          "record_id_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id Column"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_monitoring_upload_projects__project_id__monitoring_batches_post"
+      },
+      "ConfigureRequest": {
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "title": "Dataset Id"
+          },
+          "target_column": {
+            "type": "string",
+            "title": "Target Column"
+          },
+          "task": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "classification",
+              "regression"
+            ],
+            "title": "Task",
+            "default": "auto"
+          },
+          "positive_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Positive Class"
+          },
+          "time_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Column"
+          },
+          "group_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Column"
+          },
+          "record_id_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id Column"
+          },
+          "primary_metric": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Metric"
+          },
+          "random_seed": {
+            "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Random Seed",
+            "default": 42
+          },
+          "test_size": {
+            "type": "number",
+            "maximum": 0.4,
+            "minimum": 0.1,
+            "title": "Test Size",
+            "default": 0.2
+          },
+          "validation_size": {
+            "type": "number",
+            "maximum": 0.4,
+            "minimum": 0.1,
+            "title": "Validation Size",
+            "default": 0.2
+          },
+          "excluded_features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Excluded Features"
+          },
+          "confirmed_leakage": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Confirmed Leakage"
+          },
+          "optional_features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Optional Features"
+          },
+          "feature_availability_confirmed": {
+            "type": "boolean",
+            "title": "Feature Availability Confirmed",
+            "default": false
+          },
+          "max_trials": {
+            "type": "integer",
+            "maximum": 64.0,
+            "minimum": 1.0,
+            "title": "Max Trials",
+            "default": 16
+          },
+          "time_budget_seconds": {
+            "type": "integer",
+            "maximum": 1800.0,
+            "minimum": 5.0,
+            "title": "Time Budget Seconds",
+            "default": 300
+          },
+          "fit_timeout_seconds": {
+            "type": "integer",
+            "maximum": 600.0,
+            "minimum": 1.0,
+            "title": "Fit Timeout Seconds",
+            "default": 60
+          },
+          "weight_trials": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Weight Trials",
+            "default": 16
+          },
+          "meaningful_gain": {
+            "type": "number",
+            "maximum": 0.5,
+            "minimum": 0.0,
+            "title": "Meaningful Gain",
+            "default": 0.01
+          },
+          "calibration_gain": {
+            "type": "number",
+            "maximum": 0.5,
+            "minimum": 0.0,
+            "title": "Calibration Gain",
+            "default": 0.01
+          },
+          "selection_tolerance": {
+            "type": "number",
+            "maximum": 0.2,
+            "minimum": 0.0,
+            "title": "Selection Tolerance",
+            "default": 0.02
+          },
+          "acceptance_drop": {
+            "type": "number",
+            "maximum": 0.5,
+            "exclusiveMinimum": 0.0,
+            "title": "Acceptance Drop",
+            "default": 0.05
+          },
+          "critical_drop": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Critical Drop",
+            "default": 0.2
+          },
+          "psi_threshold": {
+            "type": "number",
+            "maximum": 5.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Psi Threshold",
+            "default": 0.2
+          },
+          "js_threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Js Threshold",
+            "default": 0.1
+          },
+          "missingness_drift_threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Missingness Drift Threshold",
+            "default": 0.1
+          },
+          "wasserstein_threshold": {
+            "type": "number",
+            "maximum": 10.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Wasserstein Threshold",
+            "default": 0.5
+          },
+          "drift_fraction_threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Drift Fraction Threshold",
+            "default": 0.2
+          },
+          "calibration_drift_threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Calibration Drift Threshold",
+            "default": 0.05
+          },
+          "minimum_monitoring_labels": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 10.0,
+            "title": "Minimum Monitoring Labels",
+            "default": 30
+          },
+          "persistent_batches": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 2.0,
+            "title": "Persistent Batches",
+            "default": 2
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dataset_id",
+          "target_column"
+        ],
+        "title": "ConfigureRequest"
+      },
+      "DataTwinRequest": {
+        "properties": {
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/Scenario"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Scenarios"
+          },
+          "include_labels": {
+            "type": "boolean",
+            "title": "Include Labels",
+            "default": true
+          },
+          "intensities": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Intensities"
+          },
+          "random_seed": {
+            "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Random Seed",
+            "default": 42
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "scenarios"
+        ],
+        "title": "DataTwinRequest"
+      },
+      "DriftRequest": {
+        "properties": {
+          "dataset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset Id"
+          },
+          "include_labels": {
+            "type": "boolean",
+            "title": "Include Labels",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DriftRequest"
+      },
+      "ExperimentRequest": {
+        "properties": {
+          "experiment_type": {
+            "type": "string",
+            "enum": [
+              "feature_removal",
+              "increased_missingness",
+              "added_noise",
+              "distribution_shift",
+              "extreme_values",
+              "input_corruption",
+              "unavailable_features",
+              "reduced_training_size",
+              "increased_class_imbalance",
+              "subgroup_reweighting",
+              "subgroup_oversampling",
+              "class_weighting",
+              "threshold_adjustment",
+              "probability_recalibration",
+              "alternative_model",
+              "alternative_ensemble",
+              "additional_labelled_data",
+              "model_retraining"
+            ],
+            "title": "Experiment Type"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          },
+          "random_seed": {
+            "type": "integer",
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Random Seed",
+            "default": 42
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "experiment_type"
+        ],
+        "title": "ExperimentRequest"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LifecycleRequest": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "finalize",
+              "reject",
+              "approve",
+              "promote"
+            ],
+            "title": "Action"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "title": "LifecycleRequest"
+      },
+      "MappingRequest": {
+        "properties": {
+          "feature_mapping": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Feature Mapping",
+            "description": "Source batch column to expected model column"
+          },
+          "target_column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Column"
+          },
+          "confirm_labels": {
+            "type": "boolean",
+            "title": "Confirm Labels",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MappingRequest"
+      },
+      "PredictRequest": {
+        "properties": {
+          "records": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Records"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "records"
+        ],
+        "title": "PredictRequest"
+      },
+      "ProjectCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ProjectCreate"
+      },
+      "Scenario": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "numeric_shift",
+              "numeric_scaling",
+              "categorical_shift",
+              "missingness",
+              "noise",
+              "extreme_values",
+              "input_corruption",
+              "class_prevalence",
+              "combined"
+            ],
+            "title": "Type"
+          },
+          "feature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feature"
+          },
+          "magnitude": {
+            "type": "number",
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Magnitude",
+            "default": 0.1
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Parameters"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "Scenario"
+      },
+      "ShieldRequest": {
+        "properties": {
+          "min_samples": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 10.0,
+            "title": "Min Samples",
+            "default": 50
+          },
+          "min_support": {
+            "type": "number",
+            "maximum": 0.5,
+            "minimum": 0.01,
+            "title": "Min Support",
+            "default": 0.05
+          },
+          "max_depth": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Max Depth",
+            "default": 3
+          },
+          "bootstrap_iterations": {
+            "type": "integer",
+            "maximum": 2000.0,
+            "minimum": 0.0,
+            "title": "Bootstrap Iterations",
+            "default": 200
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ShieldRequest"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

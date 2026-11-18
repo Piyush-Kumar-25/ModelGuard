@@ -1,62 +1,45 @@
-from __future__ import annotations
+from ..database import all_rows,load,now
+from .data import configured,get_project,load_frame,summarize
+from .modeling import load_model,model_results
+from .shield import analyses
+from .drift import history
 
-from typing import Any
+DIMENSIONS=['Data Quality','Leakage Safety','Evaluation Integrity','Subgroup Robustness','Noise and Missingness Robustness','Distribution-Shift Robustness','Production Stability']
+RANK={'Critical':6,'Needs Attention':5,'Insufficient Evidence':4,'Not Evaluated':3,'Monitor':2,'Pass':1}
 
-from ..database import all_rows, load, one
-from .data import get_project, summarize
-from .modeling import model_results
+def worst(statuses):return max(statuses,key=lambda s:RANK[s]) if statuses else 'Not Evaluated'
+def summarize_dimensions(dimensions):
+    evaluated=sum(d['status'] not in {'Not Evaluated','Insufficient Evidence'} for d in dimensions);status=worst([d['status'] for d in dimensions]);return {'status':status,'evidence_coverage':{'evaluated':evaluated,'applicable':len(dimensions),'fraction':evaluated/len(dimensions) if dimensions else 0},'decision_rule':'Critical dominates; then Needs Attention, Insufficient Evidence, Not Evaluated, Monitor, Pass. No averaging of critical evidence.'}
 
-STATUSES=["Not Evaluated","Insufficient Evidence","Pass","Monitor","Needs Attention","Critical"]
-
-
-def _latest(project_id,kind):
-    row=one("SELECT result_json FROM analyses WHERE project_id=? AND kind=? ORDER BY created_at DESC LIMIT 1",(project_id,kind))
-    return load(row["result_json"]) if row else None
-
-
-def _dim(status,evidence,thresholds,findings,coverage,limitations,recommendation):
-    return {"status":status,"measured_evidence":evidence,"thresholds_used":thresholds,"important_findings":findings,"evidence_coverage":coverage,"uncertainty_or_sample_limitations":limitations,"recommendation":recommendation}
-
-
-def assessment(project_id: str, include_indicator=False) -> dict[str,Any]:
-    get_project(project_id); audit=_latest(project_id,"audit"); shield=_latest(project_id,"modelshield"); twin=_latest(project_id,"datatwin"); drift=_latest(project_id,"drift"); models=model_results(project_id)["models"]; model=models[0] if models else None
-    dims={}
-    if audit:
-        dataf=[f for f in audit["findings"] if "leakage" not in f["check_name"].lower() and "post-outcome" not in f["check_name"].lower()]
-        st=max((f["status"] for f in dataf),key=lambda s:STATUSES.index(s)); dims["Data Quality"]=_dim(st,dataf,{},[f["check_name"] for f in dataf if f["status"]!="Pass"],"Core automated checks completed",[f["limitations"] for f in dataf],"Address high-severity findings before relying on the model.")
-        leak=next((f for f in audit["findings"] if "leakage" in f["check_name"].lower()),None); dims["Leakage Safety"]=_dim(leak["status"],leak,leak["threshold_used"],leak["affected_features"],"Heuristic screen completed",[leak["limitations"]],leak["recommendation"])
-    else:
-        dims["Data Quality"]=dims["Leakage Safety"]=_dim("Not Evaluated",None,{},[],"None",["Run DataDoctor audit."],"Run the audit.")
-    if model: dims["Evaluation Integrity"]=_dim("Pass",model["details"]["evaluation"],{},[model["selected_model"]],"Held-out test and cross-validation completed",model["details"]["limitations"],"Revalidate on external or later data before production use.")
-    else: dims["Evaluation Integrity"]=_dim("Not Evaluated",None,{},[],"None",["No model trained."],"Train baseline candidates.")
-    if shield:
-        regs=shield["failure_regions"]; st=max((r["reliability_status"] for r in regs),key=lambda s:STATUSES.index(s)) if regs else "Pass"; dims["Subgroup Robustness"]=_dim(st,{"regions":regs[:5]},{"minimum_samples":shield["minimum_samples"]},[r["rule"] for r in regs[:5]],"Held-out failure-tree analysis",shield["limitations"],"Investigate supported regions and test remediation without hiding global trade-offs.")
-    else: dims["Subgroup Robustness"]=_dim("Not Evaluated",None,{},[],"None",["ModelShield not run."],"Run failure-region discovery.")
-    if twin:
-        missing=[r for r in twin["results"] if r["scenario"]["type"] in {"missingness","noise","extreme_values","combined"}]; shifts=[r for r in twin["results"] if r["scenario"]["type"] in {"numeric_shift","categorical_shift","combined"}]
-        dims["Noise and Missingness Robustness"]=_dim("Monitor" if missing else "Not Evaluated",missing,{},[r["scenario"] for r in missing],f"{len(missing)} controlled scenarios",[twin["label"]],"Compare metric changes to domain acceptance thresholds.")
-        dims["Distribution-Shift Robustness"]=_dim("Monitor" if shifts else "Not Evaluated",shifts,{},[r["scenario"] for r in shifts],f"{len(shifts)} controlled scenarios",[twin["label"]],"Expand scenarios using plausible domain shifts.")
-    else:
-        dims["Noise and Missingness Robustness"]=_dim("Not Evaluated",None,{},[],"None",["No scenarios run."],"Run missingness/noise scenarios.")
-        dims["Distribution-Shift Robustness"]=_dim("Not Evaluated",None,{},[],"None",["No scenarios run."],"Run distribution-shift scenarios.")
-    if drift:
-        statuses=[f["practical_significance"] for f in drift["features"]]; st="Needs Attention" if "Needs Attention" in statuses else "Monitor" if "Monitor" in statuses else "Pass"; dims["Production Stability"]=_dim(st,drift,{"per_feature":"configured in finding"},[f["feature"] for f in drift["features"][:5]],"One production batch",["Persistence requires multiple batches."],drift["retraining_recommendation"])
-    else: dims["Production Stability"]=_dim("Not Evaluated",None,{},[],"None",["No production batch analyzed."],"Analyze a production batch.")
-    evaluated=[d for d in dims.values() if d["status"] not in {"Not Evaluated","Insufficient Evidence"}]
-    if any(d["status"]=="Critical" for d in dims.values()): overall="Critical"
-    elif any(d["status"]=="Needs Attention" for d in dims.values()): overall="Needs Attention"
-    elif len(evaluated)<len(dims): overall="Insufficient Evidence"
-    elif any(d["status"]=="Monitor" for d in dims.values()): overall="Monitor"
-    else: overall="Pass"
-    result={"project_id":project_id,"dimensions":dims,"evidence_coverage":{"evaluated":len(evaluated),"total":len(dims)},"overall_reliability_status":overall,"decision_rule":"Critical evidence dominates; then Needs Attention; missing dimensions produce Insufficient Evidence; no averaging is used."}
-    if include_indicator:
-        weights={k:1/7 for k in dims}; scores={"Pass":100,"Monitor":70,"Needs Attention":40,"Critical":0}; included=[k for k,v in dims.items() if v["status"] in scores]; value=round(sum(scores[dims[k]["status"]]*weights[k] for k in included)/sum(weights[k] for k in included)) if included else None
-        result["provisional_indicator"]={"value":value,"scale":100,"weights":weights,"included_dimensions":included,"calculation":"weighted mean over evaluated dimensions only; unevaluated dimensions receive no favourable value","evidence_coverage":f"{len(included)} of 7 dimensions","confidence":"Moderate" if len(included)>=5 else "Low","status":overall,"note":"Provisional heuristic; not a validated probability that the model is reliable."}
+def assessment(pid,include_indicator=False,model_id=None):
+    cfg,_,meta=configured(pid);model=None;art=None
+    try:model,art=load_model(pid,model_id);cfg=art['config']
+    except Exception as exc:
+        from ..errors import ModelGuardError
+        if not isinstance(exc,ModelGuardError) or exc.code!='not_found':raise
+    mid=model['id'] if model else None;audits=[a for a in analyses(pid,'audit') if a.get('dataset_id')==cfg['dataset_id']];audit=audits[-1] if audits else None;dimensions=[]
+    add=lambda name,status,evidence,reason:dimensions.append({'dimension':name,'status':status,'evidence':evidence,'decision_rule':reason})
+    quality=[f for f in audit['findings'] if f['check_name'] not in {'Target leakage and post-outcome candidates','Prediction-time availability','Group contamination','Chronological leakage'}] if audit else []
+    add(DIMENSIONS[0],worst([f['status'] for f in quality]),quality,'Measured DataDoctor thresholds; heuristic findings are explicitly marked.')
+    leaks=[f for f in audit['findings'] if f['check_name']=='Target leakage and post-outcome candidates'] if audit else [];excluded=set(cfg['excluded_features']+cfg['confirmed_leakage']);unresolved=[c for f in leaks for c in f['affected_features'] if c not in excluded]
+    leakstatus='Needs Attention' if unresolved else 'Pass' if audit and cfg.get('feature_availability_confirmed') else 'Insufficient Evidence' if audit else 'Not Evaluated'
+    add(DIMENSIONS[1],leakstatus,{'unresolved_candidates':unresolved,'excluded_features':sorted(excluded),'prediction_time_availability_confirmed':cfg.get('feature_availability_confirmed',False)},'Heuristic screening cannot prove leakage safety; availability confirmation and resolved exclusions are required.')
+    evaluation=model['details'].get('evaluation',{}) if model else {};manifest=evaluation.get('manifest',{});sets=[set(manifest.get(k,[])) for k in ['train','validation','test']];disjoint=all(sets) and not any(sets[i]&sets[j] for i in range(3) for j in range(i+1,3));valid=bool(disjoint and evaluation.get('final_test_evaluated_after_lock') and evaluation.get('test_used_for_selection') is False)
+    add(DIMENSIONS[2],'Pass' if valid else 'Insufficient Evidence' if model else 'Not Evaluated',evaluation,'Requires persisted disjoint three-way manifest and locked test evaluation, not mere model existence.')
+    shields=analyses(pid,'modelshield',mid) if mid else [];regions=[r for a in shields for r in a['failure_regions']];add(DIMENSIONS[3],worst([r['status'] for r in regions]) if regions else 'Insufficient Evidence' if shields else 'Not Evaluated',regions,'Only independently confirmed supported regions may be Critical; discovery alone is insufficient.')
+    scenarios=[r for a in analyses(pid,'datatwin',mid) for r in a['results']] if mid else []
+    for name,kinds in [(DIMENSIONS[4],{'missingness','noise','input_corruption','extreme_values'}),(DIMENSIONS[5],{'numeric_shift','numeric_scaling','categorical_shift','class_prevalence','combined'})]:
+        selected=[r for r in scenarios if r['scenario_definition']['type'] in kinds];add(name,worst([r['status'] for r in selected]),selected,'Retained-label controlled effects versus configured acceptance/critical thresholds; unlabelled sensitivity is insufficient performance evidence.')
+    production=history(pid,mid)['batches'] if mid else [];add(DIMENSIONS[6],production[-1]['status'] if production else 'Not Evaluated',production[-1] if production else None,'Latest chronological distinct production batch; no batch means Not Evaluated.')
+    pre=summarize_dimensions(dimensions[:6]);overall=summarize_dimensions(dimensions);result={'project_id':pid,'model_id':mid,'dimensions':dimensions,'pre_deployment_readiness':pre,'production_stability':dimensions[-1],'overall_lifecycle_status':overall,'evidence_coverage':overall['evidence_coverage'],'numerical_indicator_enabled':False}
+    if include_indicator:result['indicator_note']='Disabled: no authoritative numerical reliability score is provided.'
     return result
 
-
-def report(project_id: str, include_indicator=False):
-    project=get_project(project_id); audit=_latest(project_id,"audit"); shield=_latest(project_id,"modelshield"); twin=_latest(project_id,"datatwin"); drift=_latest(project_id,"drift"); models=model_results(project_id)["models"]; experiments=[load(r["result_json"]) for r in all_rows("SELECT result_json FROM experiments WHERE project_id=? ORDER BY created_at DESC",(project_id,))]
-    reliability=assessment(project_id,include_indicator)
-    profile=summarize(project_id,audit["dataset_id"]) if audit else None
-    return {"project":{"id":project["id"],"name":project["name"]},"dataset_profile":profile,"data_doctor":audit,"preprocessing_and_evaluation":None if not models else models[0]["details"]["evaluation"],"candidate_model_results":None if not models else models[0]["details"]["candidates"],"selected_baseline":None if not models else models[0],"model_limitations":[] if not models else models[0]["details"]["limitations"],"failure_regions":None if not shield else shield["failure_regions"],"controlled_scenarios":twin,"remediation_and_stress_experiments":experiments,"drift_watch":drift,"reliability_assessment":reliability,"recommendations":[v["recommendation"] for v in reliability["dimensions"].values()],"known_limitations":["Automated checks cannot establish causality or feature availability at prediction time.","Results depend on representativeness of uploaded data and configured thresholds."],"evidence_labels":{"observed_facts":"dataset profile and counts","statistical_findings":"tests and measured metrics","heuristic_warnings":"explicitly marked in DataDoctor","controlled_simulations":"DataTwin only","recommendations":"decision support, not automatic production action","unavailable_evidence":"Not Evaluated dimensions"}}
+def report(pid,include_indicator=False,model_id=None):
+    rel=assessment(pid,include_indicator,model_id);model,art=load_model(pid,rel['model_id']) if rel['model_id'] else (None,None);cfg=art['config'] if art else configured(pid)[0];_,meta=load_frame(pid,cfg['dataset_id']);mid=rel['model_id'];audit=[a for a in analyses(pid,'audit') if a.get('dataset_id')==cfg['dataset_id']];experiments=[{'id':r['id'],'type':r['experiment_type'],'result':load(r['result_json'])} for r in all_rows('SELECT * FROM experiments WHERE project_id=? ORDER BY created_at',(pid,))];recommendations={'Immediate':[],'Before deployment':[],'Monitoring':[],'Future improvement':[]}
+    for d in rel['dimensions']:
+        if d['status'] in {'Critical','Needs Attention'}:recommendations['Immediate'].append({'dimension':d['dimension'],'recommendation':'Investigate and address the measured findings before approval.','evidence_type':'recommendation'})
+        elif d['status'] in {'Not Evaluated','Insufficient Evidence'}:recommendations['Before deployment' if d['dimension']!='Production Stability' else 'Monitoring'].append({'dimension':d['dimension'],'recommendation':'Collect and monitor future production batches.' if d['dimension']=='Production Stability' else 'Collect sufficient evidence for '+d['dimension']+'.','evidence_type':'recommendation'})
+    recommendations['Monitoring'].append({'recommendation':'Review confirmed labels and persistent drift; challenger evaluation never automatically replaces the incumbent.','evidence_type':'recommendation'})
+    recommendations['Future improvement'].append({'recommendation':'Validate on independent future data and domain-specific costs.','evidence_type':'recommendation'})
+    return {'project_id':pid,'model_id':mid,'executive_summary':{'pre_deployment_status':rel['pre_deployment_readiness']['status'],'overall_status':rel['overall_lifecycle_status']['status'],'evidence_coverage':rel['evidence_coverage']},'dataset_profile':summarize(pid,cfg['dataset_id']),'target_and_task':{k:cfg.get(k) for k in ['target_column','task','positive_class','positive_class_source','primary_metric']},'data_doctor':audit,'exclusions_and_leakage_decisions':{k:cfg.get(k) for k in ['excluded_features','confirmed_leakage','feature_availability_confirmed']},'split_evaluation_strategy':model['details'].get('evaluation') if model else None,'model_selection':model['details'] if model else None,'selected_incumbent':{'id':mid,'version':model['version'],'status':model['status'],'name':model['selected_name']} if model else None,'global_metrics':model['metrics'] if model else None,'modelshield':analyses(pid,'modelshield',mid) if mid else [],'datatwin':analyses(pid,'datatwin',mid) if mid else [],'experimentlab':experiments,'driftwatch':history(pid,mid) if mid else {'batches':[]},'reliability':rel,'prioritized_recommendations':recommendations,'evidence_taxonomy':{'observed_fact':'Counts, schemas and immutable hashes','statistical_finding':'Metrics and bootstrap intervals','heuristic_warning':'Semantic leakage and unit-like warnings','controlled_simulation':'DataTwin and stress interventions','prediction':'Frozen-model outputs, not actual outcomes','recommendation':'Human-review action derived from evidence','unavailable_evidence':'Explicit Not Evaluated or Insufficient Evidence'},'reproducibility':{'random_seed':cfg['random_seed'],'dataset_id':cfg['dataset_id'],'dataset_sha256':meta['sha256'],'model_version':model['version'] if model else None,'schema_version':1,'schema_fingerprint':cfg.get('schema_fingerprint')},'limitations':['No causal or universal deployment-readiness guarantees.','Unlabelled drift cannot confirm accuracy degradation.','One finalized challenger comparison per reference dataset protects against repeated test-set optimization.'],'generated_at':now()}

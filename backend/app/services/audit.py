@@ -22,7 +22,7 @@ def audit(project_id: str) -> dict[str, Any]:
     out: list[dict[str, Any]] = []
     miss = x.isna().mean().sort_values(ascending=False)
     affected = list(miss[miss > 0].index.astype(str))
-    out.append(finding("Missing values", {str(k): round(float(v), 4) for k, v in miss[miss > 0].items()}, "per-column null fraction", affected, {"attention": 0.2, "critical": 0.5}, "Needs Attention" if any(miss > .2) else ("Monitor" if affected else "Pass"), "high" if any(miss > .5) else "medium" if affected else "none", None, "Use training-fitted imputation and investigate missingness mechanism.", "Missingness mechanism is not identifiable from this dataset alone.", False))
+    out.append(finding("Missing values", {str(k): round(float(v), 4) for k, v in miss[miss > 0].items()}, "per-column null fraction", affected, {"attention": 0.2, "critical": 0.5}, "Critical" if any(miss > .5) else "Needs Attention" if any(miss > .2) else ("Monitor" if affected else "Pass"), "high" if any(miss > .5) else "medium" if affected else "none", None, "Use training-fitted imputation and investigate missingness mechanism.", "Missingness mechanism is not identifiable from this dataset alone.", False))
     dup = int(df.duplicated().sum())
     out.append(finding("Exact duplicate contamination", {"rows": dup, "fraction": round(dup/len(df), 4)}, "full-row duplicated comparison", list(df.columns) if dup else [], 0, "Needs Attention" if dup else "Pass", "high" if dup/len(df) > .05 else "medium" if dup else "none", None, "Deduplicate before splitting or use grouped splitting.", "Identical legitimate repeated events may exist.", False))
     constants = [str(c) for c in x if x[c].nunique(dropna=True) <= 1]
@@ -71,9 +71,23 @@ def audit(project_id: str) -> dict[str, Any]:
             if pd.api.types.is_numeric_dtype(x[c]) and pd.api.types.is_numeric_dtype(y): score=abs(float(x[c].corr(y)))
             elif x[c].nunique(dropna=True) < 100: score=float(pd.crosstab(x[c],y,normalize="index").max(axis=1).mean())
         except Exception: pass
+        if score is not None and not np.isfinite(score): score=None
         if leak_names.search(str(c)) or (score is not None and score>.98): leak.append({"feature":str(c),"association":None if score is None else round(score,4),"name_warning":bool(leak_names.search(str(c)))})
     status="Critical" if any((z["association"] or 0)>.999 for z in leak) else "Needs Attention" if leak else "Pass"
     out.append(finding("Target leakage and post-outcome candidates", leak, "feature-name pattern plus near-perfect univariate association", [z["feature"] for z in leak], {"association":.98}, status, "critical" if status=="Critical" else "high" if leak else "none", leak, "Confirm feature availability at prediction time; exclude post-outcome fields.", "Association and names cannot prove temporal leakage; domain review is required.", True))
+    ids=[str(c) for c in x if re.search(r"(^id$|_id$|uuid|account|customer)",str(c),re.I) and x[c].nunique()/len(x)>.5]
+    out.append(finding("ID-like columns",ids,"name and cardinality",ids,.5,"Needs Attention" if ids else "Pass","medium",None,"Exclude identifiers or configure entity grouping.","Names do not prove identity semantics.",True))
+    missing_target=float(y.isna().mean())
+    out.append(finding("Target quality",missing_target,"target missing fraction",[target],0,"Needs Attention" if missing_target else "Pass","medium",None,"Review missing labels; unlabelled rows are excluded from training.","Label correctness cannot be inferred statistically.",False))
+    numeric=nums.replace([np.inf,-np.inf],np.nan).fillna(nums.median()).fillna(0).iloc[:5000,:30]
+    if numeric.shape[1]>1:
+        standardized=(numeric-numeric.mean())/numeric.std().replace(0,1);sing=np.linalg.svd(standardized.to_numpy(),compute_uv=False);condition=float(sing[0]/max(sing[-1],1e-12));rank=int(np.linalg.matrix_rank(standardized))
+        out.append(finding("Multicollinearity",{"condition_number":condition,"rank":rank,"columns":numeric.shape[1]},"SVD of standardized numeric design",list(numeric),30,"Needs Attention" if condition>30 else "Pass","medium",None,"Review dependent columns or regularize.","Limited to first 30 numeric features and 5000 rows; scale and nonlinear structure matter.",False))
+    for name,field in [("Group contamination","group_column"),("Chronological leakage","time_column")]:
+        configured_col=cfg.get(field)
+        suspects=[c for c in x if re.search(r"entity|customer|account|date|time",str(c),re.I)]
+        out.append(finding(name,{"configured_column":configured_col,"candidate_columns":suspects},"configuration and semantic name screening",suspects,"explicit split configuration","Monitor" if suspects and not configured_col else "Pass","medium",None,"Confirm group/time semantics and use the corresponding split strategy.","Semantic warnings are heuristic; configuration alone cannot prove absence of leakage.",True))
+    out.append(finding("Prediction-time availability",cfg.get("feature_availability_confirmed",False),"user attestation",list(x),True,"Pass" if cfg.get("feature_availability_confirmed") else "Insufficient Evidence","high",None,"Confirm all included features exist before the outcome occurs.","Requires domain review; no automated proof.",True))
     result={"project_id":project_id,"dataset_id":meta["id"],"findings":out,"summary":{"checks":len(out),"critical":sum(f["status"]=="Critical" for f in out),"needs_attention":sum(f["status"]=="Needs Attention" for f in out)},"generated_at":now()}
     insert("analyses",{"id":uid(),"project_id":project_id,"kind":"audit","result_json":dump(result),"created_at":now()})
     return result
